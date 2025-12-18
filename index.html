@@ -2,104 +2,10 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Bloco de Notas Binho</title>
+  <title>Bloco de Notas Juca</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-<!-- CORREÇÃO: SALVAMENTO REAL NO GITHUB -->
-<!-- Interface -->
-<button id="saveGithub" style="position:fixed;bottom:20px;right:20px;z-index:9999;padding:10px 16px;border-radius:8px;border:none;background:#22c55e;color:#000;font-weight:bold;cursor:pointer">💾 Salvar no GitHub</button>
-
-<script>
-// --- CONFIGURAÇÃO DO GIST ---
-const GIST_ID = "b0029b247a3fedb89dcf75360e62a7d8"; // obrigatório
-
-// --- TOKEN ---
-let GITHUB_TOKEN = localStorage.getItem("github_token");
-if (!GITHUB_TOKEN) {
-  const t = prompt("Cole seu GitHub Token (fica só neste navegador):");
-  if (t) {
-    localStorage.setItem("github_token", t);
-    GITHUB_TOKEN = t;
-  }
-}
-
-// --- SENHA MESTRA ---
-let masterPassword = sessionStorage.getItem("master_password");
-if (!masterPassword) {
-  masterPassword = prompt("Digite sua senha mestra:");
-  if (masterPassword) sessionStorage.setItem("master_password", masterPassword);
-}
-
-// --- CRIPTOGRAFIA SIMPLES ---
-function encrypt(text, password) {
-  return btoa(unescape(encodeURIComponent(password + "::" + text)));
-}
-function decrypt(data, password) {
-  const decoded = decodeURIComponent(escape(atob(data)));
-  if (!decoded.startsWith(password + "::")) throw new Error("Senha incorreta");
-  return decoded.replace(password + "::", "");
-}
-
-// --- SALVAR ---
-document.getElementById("saveGithub").onclick = async () => {
-  try {
-    const content = document.body.innerText || "";
-    const encrypted = encrypt(content, masterPassword);
-
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-      method: "PATCH",
-      headers: {
-        "Authorization": `token ${GITHUB_TOKEN}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        files: {
-          "notas.txt": { content: encrypted }
-        }
-      })
-    });
-
-    if (!res.ok) throw new Error("Erro ao salvar");
-    alert("✅ Salvo com sucesso no GitHub");
-  } catch (e) {
-    alert("Erro ao salvar: " + e.message);
-  }
-};
-
-// --- CARREGAR ---
-(async () => {
-  try {
-    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
-    const data = await res.json();
-    if (data.files && data.files["notas.txt"]) {
-      const decrypted = decrypt(data.files["notas.txt"].content, masterPassword);
-      document.body.innerText = decrypted;
-    }
-  } catch (e) {
-    console.log("Primeiro uso ou senha diferente");
-  }
-})();
-</script>
-
-<script>
-let masterPassword = "";
-
-async function login() {
-  masterPassword = prompt("Digite sua senha mestra:");
-  if (!masterPassword) return;
-
-  try {
-    const text = await loadFromGist(masterPassword);
-    editor.value = text;
-    updateStatus();
-  } catch {
-    alert("Senha incorreta ou dados inválidos.");
-  }
-}
-window.onload = login;
-</script>
-
   <style>
+    /* ... (MANTENDO TODO O SEU CSS ORIGINAL ABAIXO) ... */
     :root {
       --bg-body: #050505;
       --bg-window: #202020;
@@ -129,6 +35,61 @@ window.onload = login;
       display: flex;
     }
 
+    /* --- NOVO CSS DO LOGIN --- */
+    #loginOverlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: #050505;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    .login-box {
+      background: var(--bg-window);
+      padding: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--border-window);
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      width: 300px;
+    }
+    .login-box h2 {
+      margin-bottom: 20px;
+      font-size: 18px;
+      color: var(--accent);
+    }
+    .login-input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      background: #111;
+      border: 1px solid #333;
+      color: white;
+      border-radius: 4px;
+      outline: none;
+    }
+    .login-input:focus { border-color: var(--accent); }
+    .login-btn {
+      width: 100%;
+      padding: 10px;
+      background: var(--accent);
+      border: none;
+      color: #000;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .login-btn:hover { background: #5fd1ff; }
+    .login-error {
+      color: #ff5555;
+      font-size: 12px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* ... MANTENDO O RESTO DO SEU CSS ... */
     .window {
       width: 100vw;
       height: 100vh;
@@ -577,6 +538,17 @@ window.onload = login;
 </head>
 
 <body>
+
+  <div id="loginOverlay">
+    <div class="login-box">
+      <div class="app-icon" style="margin: 0 auto 15px auto; width: 32px; height: 32px;"></div>
+      <h2>Acesso Restrito</h2>
+      <input type="password" id="loginPass" class="login-input" placeholder="Digite a senha..." />
+      <button id="loginBtn" class="login-btn">Entrar</button>
+      <div id="loginError" class="login-error">Senha incorreta</div>
+    </div>
+  </div>
+
   <div class="window" id="notepadWindow">
 
     <div class="tab-bar">
@@ -641,6 +613,36 @@ window.onload = login;
   </div>
 
 <script>
+  // ----- CONFIGURAÇÃO DA SENHA -----
+  // TROQUE '1234' PELA SUA SENHA DESEJADA
+  const MINHA_SENHA = "binho@R93107"; 
+
+  // ----- LÓGICA DE LOGIN -----
+  const loginOverlay = document.getElementById('loginOverlay');
+  const loginPass = document.getElementById('loginPass');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
+
+  function checkLogin() {
+    if (loginPass.value === MINHA_SENHA) {
+      loginOverlay.style.display = 'none';
+      editor.focus();
+    } else {
+      loginError.style.display = 'block';
+      loginPass.value = '';
+      loginPass.focus();
+    }
+  }
+
+  loginBtn.addEventListener('click', checkLogin);
+  loginPass.addEventListener('keyup', (e) => {
+    if (e.key === 'Enter') checkLogin();
+  });
+
+  // ------------------------------------
+  // (CÓDIGO ORIGINAL ABAIXO)
+  // ------------------------------------
+
   const editor = document.getElementById("editor");
   const editorWrapper = document.querySelector(".editor-wrapper");
 
@@ -686,7 +688,6 @@ window.onload = login;
   }
 
   editor.addEventListener("scroll", handleEditorScroll);
-  saveToGist(editor.value, masterPassword);
 
   editor.addEventListener("wheel", () => {
     const before = editor.scrollTop;
@@ -719,8 +720,6 @@ window.onload = login;
   const saveBtn = document.getElementById("saveBtn");
 
   // --- INDEXEDDB SETUP ---
-  // Precisamos usar IndexedDB para persistir os handles de arquivos, 
-  // pois localStorage não suporta objetos complexos.
   const DB_NAME = "NotepadDB";
   const DB_VERSION = 1;
   const STORE_NAME = "appState";
@@ -966,7 +965,6 @@ window.onload = login;
 
     saveState();
     if (!findBarVisible) clearFindState();
-    setTimeout(() => editor.focus(), 0);
   }
 
   function addTab() {
