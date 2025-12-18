@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Bloco de Notas do Binho</title>
+  <title>Bloco de Notas Juca (Cloud)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     /* ========================================= */
@@ -250,7 +250,9 @@
         <div class="status-group">
           <span id="statusLines" class="status-pill">Linhas: 1</span>
           <span class="status-divider"></span>
-          <span id="statusWords" class="status-pill">Plv: 0</span>
+          <span id="statusWords" class="status-pill">Palavras: 0</span>
+          <span class="status-divider"></span>
+          <span id="statusChars" class="status-pill">Caracteres: 0</span>
         </div>
         <div class="status-group">
           <button id="cloudBtn" class="cloud-btn">☁️ Nuvem</button>
@@ -266,7 +268,7 @@
   // ============================================
   //   CONFIGURAÇÃO DA SENHA E LOGIN
   // ============================================
-  const MINHA_SENHA = "binho@31"; 
+  const MINHA_SENHA = "binho@31"; // <-- SUA SENHA AQUI
 
   const loginOverlay = document.getElementById('loginOverlay');
   const loginPass = document.getElementById('loginPass');
@@ -327,6 +329,7 @@
 
   const statusLines = document.getElementById("statusLines");
   const statusWords = document.getElementById("statusWords");
+  const statusChars = document.getElementById("statusChars"); // <-- VOLTOU
   const tabsContainer = document.getElementById("tabsContainer");
   const addTabBtnInner = document.getElementById("addTabBtnInner");
   const addTabBtnOuter = document.getElementById("addTabBtnOuter");
@@ -514,6 +517,7 @@
     const text = editor.value;
     statusLines.textContent = "Linhas: " + text.split("\n").length;
     statusWords.textContent = "Palavras: " + (text.trim().split(/\s+/).filter(w => w).length);
+    statusChars.textContent = "Caracteres: " + text.length; // <-- VOLTOU
   }
 
   function saveState() {
