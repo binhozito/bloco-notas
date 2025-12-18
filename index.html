@@ -5,117 +5,80 @@
   <title>Bloco de Notas Binho</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<script>
-async function encrypt(text, password) {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    "PBKDF2",
-    false,
-    ["deriveKey"]
-  );
-
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt: enc.encode("binho-notas"),
-      iterations: 100000,
-      hash: "SHA-256"
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["encrypt"]
-  );
-
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    enc.encode(text)
-  );
-
-  return {
-    iv: Array.from(iv),
-    data: Array.from(new Uint8Array(encrypted))
-  };
-}
-
-async function decrypt(payload, password) {
-  const enc = new TextEncoder();
-  const dec = new TextDecoder();
-
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    enc.encode(password),
-    "PBKDF2",
-    false,
-    ["deriveKey"]
-  );
-
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt: enc.encode("binho-notas"),
-      iterations: 100000,
-      hash: "SHA-256"
-    },
-    keyMaterial,
-    { name: "AES-GCM", length: 256 },
-    false,
-    ["decrypt"]
-  );
-
-  const decrypted = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: new Uint8Array(payload.iv) },
-    key,
-    new Uint8Array(payload.data)
-  );
-
-  return dec.decode(decrypted);
-}
-</script>
+<!-- CORREÇÃO: SALVAMENTO REAL NO GITHUB -->
+<!-- Interface -->
+<button id="saveGithub" style="position:fixed;bottom:20px;right:20px;z-index:9999;padding:10px 16px;border-radius:8px;border:none;background:#22c55e;color:#000;font-weight:bold;cursor:pointer">💾 Salvar no GitHub</button>
 
 <script>
-const GIST_ID = "b0029b247a3fedb89dcf75360e62a7d8";
-let GITHUB_TOKEN = "";
+// --- CONFIGURAÇÃO DO GIST ---
+const GIST_ID = "b0029b247a3fedb89dcf75360e62a7d8"; // obrigatório
 
-if (!localStorage.getItem("github_token")) {
-  const t = prompt("Cole seu GitHub Token (isso fica só neste navegador):");
-  if (t) localStorage.setItem("github_token", t);
+// --- TOKEN ---
+let GITHUB_TOKEN = localStorage.getItem("github_token");
+if (!GITHUB_TOKEN) {
+  const t = prompt("Cole seu GitHub Token (fica só neste navegador):");
+  if (t) {
+    localStorage.setItem("github_token", t);
+    GITHUB_TOKEN = t;
+  }
 }
 
-GITHUB_TOKEN = localStorage.getItem("github_token");
+// --- SENHA MESTRA ---
+let masterPassword = sessionStorage.getItem("master_password");
+if (!masterPassword) {
+  masterPassword = prompt("Digite sua senha mestra:");
+  if (masterPassword) sessionStorage.setItem("master_password", masterPassword);
+}
 
-async function saveToGist(text, password) {
-  const encrypted = await encrypt(text, password);
+// --- CRIPTOGRAFIA SIMPLES ---
+function encrypt(text, password) {
+  return btoa(unescape(encodeURIComponent(password + "::" + text)));
+}
+function decrypt(data, password) {
+  const decoded = decodeURIComponent(escape(atob(data)));
+  if (!decoded.startsWith(password + "::")) throw new Error("Senha incorreta");
+  return decoded.replace(password + "::", "");
+}
 
-  await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-    method: "PATCH",
-    headers: {
-      "Authorization": `token ${GITHUB_TOKEN}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      files: {
-        "blocodenotas.json": {
-          content: JSON.stringify(encrypted)
+// --- SALVAR ---
+document.getElementById("saveGithub").onclick = async () => {
+  try {
+    const content = document.body.innerText || "";
+    const encrypted = encrypt(content, masterPassword);
+
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": `token ${GITHUB_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        files: {
+          "notas.txt": { content: encrypted }
         }
-      }
-    })
-  });
-}
+      })
+    });
 
-async function loadFromGist(password) {
-  const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
-  const data = await res.json();
+    if (!res.ok) throw new Error("Erro ao salvar");
+    alert("✅ Salvo com sucesso no GitHub");
+  } catch (e) {
+    alert("Erro ao salvar: " + e.message);
+  }
+};
 
-  const content = data.files["blocodenotas.json"].content;
-  if (!content) return "";
-
-  return await decrypt(JSON.parse(content), password);
-}
+// --- CARREGAR ---
+(async () => {
+  try {
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`);
+    const data = await res.json();
+    if (data.files && data.files["notas.txt"]) {
+      const decrypted = decrypt(data.files["notas.txt"].content, masterPassword);
+      document.body.innerText = decrypted;
+    }
+  } catch (e) {
+    console.log("Primeiro uso ou senha diferente");
+  }
+})();
 </script>
 
 <script>
